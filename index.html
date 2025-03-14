@@ -30,22 +30,45 @@
             border-radius: 10px;
             box-shadow: 0 0 20px rgba(0,0,0,0.1);
             overflow: hidden;
+            position: relative;
+        }
+        .viewer-wrapper::before {
+            content: "Caricamento in corso...";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-family: Arial, sans-serif;
+            color: #666;
         }
         iframe {
             width: 100%;
             height: 100%;
             border: none;
+            position: relative;
+            z-index: 1;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="viewer-wrapper">
-            <iframe src="https://drive.google.com/file/d/1SdZFHq01dLF6V1YQmEizdqoUypqvrqik/preview" 
-                    allow="autoplay"
-                    allowfullscreen>
+            <iframe 
+                src="https://drive.google.com/file/d/1SdZFHq01dLF6V1YQmEizdqoUypqvrqik/preview?embedded=true" 
+                allow="autoplay"
+                allowfullscreen>
             </iframe>
         </div>
     </div>
+
+    <script>
+        // Verifica se il caricamento è avvenuto correttamente
+        window.onload = function() {
+            const iframe = document.querySelector('iframe');
+            iframe.onerror = function() {
+                alert('Errore nel caricamento del documento. Riprova più tardi.');
+            };
+        };
+    </script>
 </body>
 </html>
