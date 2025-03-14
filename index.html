@@ -4,7 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rivista Sfogliabile</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/4/turn.min.js"></script>
     <style>
         body {
             margin: 0;
@@ -13,21 +15,18 @@
             font-family: Arial, sans-serif;
         }
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             background: white;
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0 0 20px rgba(0,0,0,0.1);
         }
-        #pageContainer {
-            margin: 20px auto;
-            text-align: center;
-        }
-        canvas {
-            max-width: 100%;
+        #magazine {
             margin: 0 auto;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .page {
+            background: white;
         }
         .controls {
             text-align: center;
@@ -36,6 +35,11 @@
             background: #fff;
             border-radius: 5px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
         }
         button {
             padding: 10px 20px;
@@ -51,123 +55,122 @@
         button:hover {
             background: #0056b3;
         }
-        button:disabled {
-            background: #cccccc;
-            cursor: not-allowed;
-        }
-        #pageInfo {
-            margin: 0 20px;
-            font-size: 16px;
-        }
         #loading {
             text-align: center;
             font-size: 18px;
             color: #666;
             margin: 20px 0;
         }
+        #pageInfo {
+            margin: 0 20px;
+            color: #666;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <div id="loading">Caricamento del documento...</div>
+        <div id="loading">Caricamento della rivista...</div>
+        <div id="magazine"></div>
         <div class="controls">
-            <button id="prev" onclick="prevPage()">Precedente</button>
-            <span id="pageInfo">Pagina: <span id="pageNum">0</span> / <span id="pageCount">0</span></span>
-            <button id="next" onclick="nextPage()">Successiva</button>
-        </div>
-        <div id="pageContainer">
-            <canvas id="pdfCanvas"></canvas>
+            <button onclick="firstPage()">Prima Pagina</button>
+            <button onclick="prevPage()">Precedente</button>
+            <span id="pageInfo">Pagina <span id="currentPage">0</span> di <span id="totalPages">0</span></span>
+            <button onclick="nextPage()">Successiva</button>
+            <button onclick="lastPage()">Ultima Pagina</button>
         </div>
     </div>
 
     <script>
-        // Configurazione di PDF.js
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
         let pdfDoc = null;
-        let pageNum = 1;
-        let pageRendering = false;
-        let pageNumPending = null;
-        let scale = 1.5;
-        let canvas = document.getElementById('pdfCanvas');
-        let ctx = canvas.getContext('2d');
+        let currentPage = 1;
+        let magazine = null;
 
         // Sostituisci 'magazine.pdf' con il nome del tuo file PDF
         const url = 'magazine.pdf';
 
-        // Carica il documento
-        pdfjsLib.getDocument(url).promise.then(function(pdfDoc_) {
-            pdfDoc = pdfDoc_;
-            document.getElementById('pageCount').textContent = pdfDoc.numPages;
-            document.getElementById('loading').style.display = 'none';
-            
-            // Renderizza la prima pagina
-            renderPage(pageNum);
-        }).catch(function(error) {
-            document.getElementById('loading').textContent = 'Errore nel caricamento del documento: ' + error.message;
-        });
+        async function loadPDF() {
+            try {
+                pdfDoc = await pdfjsLib.getDocument(url).promise;
+                document.getElementById('totalPages').textContent = pdfDoc.numPages;
+                
+                const magazineDiv = document.getElementById('magazine');
+                
+                // Crea le pagine
+                for (let i = 1; i <= pdfDoc.numPages; i++) {
+                    const page = await pdfDoc.getPage(i);
+                    const scale = 1.5;
+                    const viewport = page.getViewport({ scale });
 
-        function renderPage(num) {
-            pageRendering = true;
-            document.getElementById('pageNum').textContent = num;
+                    const pageDiv = document.createElement('div');
+                    pageDiv.className = 'page';
+                    
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d');
+                    canvas.height = viewport.height;
+                    canvas.width = viewport.width;
 
-            // Mostra il messaggio di caricamento
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('loading').textContent = 'Caricamento pagina ' + num + '...';
+                    pageDiv.appendChild(canvas);
+                    magazineDiv.appendChild(pageDiv);
 
-            pdfDoc.getPage(num).then(function(page) {
-                let viewport = page.getViewport({scale: scale});
-                canvas.height = viewport.height;
-                canvas.width = viewport.width;
+                    await page.render({
+                        canvasContext: context,
+                        viewport: viewport
+                    }).promise;
 
-                let renderContext = {
-                    canvasContext: ctx,
-                    viewport: viewport
-                };
+                    document.getElementById('loading').textContent = `Caricamento pagina ${i} di ${pdfDoc.numPages}...`;
+                }
 
-                let renderTask = page.render(renderContext);
-
-                renderTask.promise.then(function() {
-                    pageRendering = false;
-                    document.getElementById('loading').style.display = 'none';
-
-                    if (pageNumPending !== null) {
-                        renderPage(pageNumPending);
-                        pageNumPending = null;
+                // Inizializza turn.js
+                magazine = $('#magazine').turn({
+                    width: 1200,
+                    height: 800,
+                    autoCenter: true,
+                    gradients: true,
+                    acceleration: true,
+                    elevation: 50,
+                    when: {
+                        turned: function(e, page) {
+                            currentPage = page;
+                            document.getElementById('currentPage').textContent = page;
+                        }
                     }
                 });
-            });
-        }
 
-        function queueRenderPage(num) {
-            if (pageRendering) {
-                pageNumPending = num;
-            } else {
-                renderPage(num);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('currentPage').textContent = '1';
+
+            } catch (error) {
+                document.getElementById('loading').textContent = 'Errore nel caricamento: ' + error.message;
             }
         }
 
         function prevPage() {
-            if (pageNum <= 1) {
-                return;
-            }
-            pageNum--;
-            queueRenderPage(pageNum);
+            $('#magazine').turn('previous');
         }
 
         function nextPage() {
-            if (pageNum >= pdfDoc.numPages) {
-                return;
-            }
-            pageNum++;
-            queueRenderPage(pageNum);
+            $('#magazine').turn('next');
         }
 
-        // Aggiorna lo stato dei pulsanti
-        function updateButtons() {
-            document.getElementById('prev').disabled = pageNum <= 1;
-            document.getElementById('next').disabled = pageNum >= pdfDoc.numPages;
+        function firstPage() {
+            $('#magazine').turn('page', 1);
         }
+
+        function lastPage() {
+            $('#magazine').turn('page', pdfDoc.numPages);
+        }
+
+        // Carica il PDF quando la pagina è pronta
+        document.addEventListener('DOMContentLoaded', loadPDF);
+
+        // Gestione del ridimensionamento della finestra
+        window.addEventListener('resize', function() {
+            if (magazine) {
+                magazine.turn('size', Math.min(1200, window.innerWidth - 60), 800);
+            }
+        });
     </script>
 </body>
 </html>
