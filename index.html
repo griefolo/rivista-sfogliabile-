@@ -4,15 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rivista Sfogliabile</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/4/turn.min.js"></script>
+    <!-- Turn.js da un CDN alternativo -->
+    <script src="https://raw.githack.com/blasten/turn.js/master/turn.min.js"></script>
     <style>
         body {
             margin: 0;
             padding: 20px;
             background: #f0f0f0;
             font-family: Arial, sans-serif;
+            overflow-x: hidden;
         }
         .container {
             max-width: 1400px;
@@ -21,6 +23,11 @@
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+        #magazine-container {
+            margin: 0 auto;
+            position: relative;
+            overflow: hidden;
         }
         #magazine {
             margin: 0 auto;
@@ -65,12 +72,24 @@
             margin: 0 20px;
             color: #666;
         }
+        /* Stili per l'effetto di sfogliamento */
+        .hard {
+            background: #ccc !important;
+            color: #333;
+            text-align: center;
+            font-weight: bold;
+            padding-top: 20px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div id="loading">Caricamento della rivista...</div>
-        <div id="magazine"></div>
+        <div id="magazine-container">
+            <div id="magazine">
+                <!-- Le pagine verranno aggiunte qui dinamicamente -->
+            </div>
+        </div>
         <div class="controls">
             <button onclick="firstPage()">Prima Pagina</button>
             <button onclick="prevPage()">Precedente</button>
@@ -97,6 +116,11 @@
                 
                 const magazineDiv = document.getElementById('magazine');
                 
+                // Aggiungi copertina
+                const coverDiv = document.createElement('div');
+                coverDiv.className = 'hard';
+                magazineDiv.appendChild(coverDiv);
+
                 // Crea le pagine
                 for (let i = 1; i <= pdfDoc.numPages; i++) {
                     const page = await pdfDoc.getPage(i);
@@ -122,28 +146,43 @@
                     document.getElementById('loading').textContent = `Caricamento pagina ${i} di ${pdfDoc.numPages}...`;
                 }
 
-                // Inizializza turn.js
-                magazine = $('#magazine').turn({
-                    width: 1200,
-                    height: 800,
-                    autoCenter: true,
-                    gradients: true,
-                    acceleration: true,
-                    elevation: 50,
-                    when: {
-                        turned: function(e, page) {
-                            currentPage = page;
-                            document.getElementById('currentPage').textContent = page;
-                        }
-                    }
-                });
+                // Aggiungi retro copertina
+                const backCoverDiv = document.createElement('div');
+                backCoverDiv.className = 'hard';
+                magazineDiv.appendChild(backCoverDiv);
 
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('currentPage').textContent = '1';
+                // Inizializza turn.js con un ritardo per assicurarsi che tutto sia caricato
+                setTimeout(() => {
+                    initializeMagazine();
+                }, 1000);
 
             } catch (error) {
                 document.getElementById('loading').textContent = 'Errore nel caricamento: ' + error.message;
             }
+        }
+
+        function initializeMagazine() {
+            const width = Math.min(1200, window.innerWidth - 60);
+            const height = (width * 0.7); // Mantieni il rapporto
+
+            magazine = $('#magazine').turn({
+                width: width,
+                height: height,
+                autoCenter: true,
+                gradients: true,
+                acceleration: true,
+                elevation: 50,
+                display: 'double',
+                when: {
+                    turned: function(e, page) {
+                        currentPage = page;
+                        document.getElementById('currentPage').textContent = page;
+                    }
+                }
+            });
+
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('currentPage').textContent = '1';
         }
 
         function prevPage() {
@@ -159,16 +198,20 @@
         }
 
         function lastPage() {
-            $('#magazine').turn('page', pdfDoc.numPages);
+            $('#magazine').turn('page', pdfDoc.numPages + 2); // +2 per le copertine
         }
 
         // Carica il PDF quando la pagina è pronta
-        document.addEventListener('DOMContentLoaded', loadPDF);
+        $(document).ready(function() {
+            loadPDF();
+        });
 
         // Gestione del ridimensionamento della finestra
-        window.addEventListener('resize', function() {
+        $(window).resize(function() {
             if (magazine) {
-                magazine.turn('size', Math.min(1200, window.innerWidth - 60), 800);
+                const width = Math.min(1200, window.innerWidth - 60);
+                const height = (width * 0.7);
+                magazine.turn('size', width, height);
             }
         });
     </script>
