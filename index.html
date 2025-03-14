@@ -77,9 +77,21 @@
             color: #666;
             font-size: 16px;
         }
+        #debug {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            max-width: 300px;
+            word-wrap: break-word;
+        }
     </style>
 </head>
 <body>
+    <div id="debug"></div>
     <div id="loading">Caricamento della rivista...</div>
     <div id="book"></div>
     <div class="controls">
@@ -92,15 +104,44 @@
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
         let flipBook;
-        const url = 'magazine.pdf'; // Sostituisci con il nome del tuo file PDF
+        // Usa l'URL completo del PDF da Google Drive
+        const url = 'https://drive.google.com/uc?export=download&id=1SdZFHq01dLF6V1YQmEizdqoUypqvrqik';
+
+        function updateDebug(message) {
+            const debug = document.getElementById('debug');
+            debug.innerHTML += message + '<br>';
+        }
+
+        async function fetchPDF() {
+            updateDebug('Iniziando il fetch del PDF...');
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                updateDebug('PDF scaricato con successo');
+                const pdfData = await response.arrayBuffer();
+                updateDebug('PDF convertito in ArrayBuffer');
+                return pdfData;
+            } catch (error) {
+                updateDebug('Errore nel fetch del PDF: ' + error.message);
+                throw error;
+            }
+        }
 
         async function loadPDF() {
             try {
-                const pdf = await pdfjsLib.getDocument(url).promise;
+                updateDebug('Inizio caricamento PDF');
+                const pdfData = await fetchPDF();
+                
+                updateDebug('Caricamento PDF con pdf.js');
+                const pdf = await pdfjsLib.getDocument({data: pdfData}).promise;
                 document.getElementById('totalPages').textContent = pdf.numPages;
+                updateDebug(`PDF caricato: ${pdf.numPages} pagine`);
 
                 const pages = [];
                 for (let i = 1; i <= pdf.numPages; i++) {
+                    updateDebug(`Rendering pagina ${i}...`);
                     const page = await pdf.getPage(i);
                     const scale = 1.5;
                     const viewport = page.getViewport({ scale });
@@ -123,10 +164,10 @@
                     document.getElementById('loading').textContent = `Caricamento pagina ${i} di ${pdf.numPages}...`;
                 }
 
-                // Inizializza PageFlip
+                updateDebug('Inizializzazione PageFlip');
                 flipBook = new PageFlip(document.getElementById('book'), {
-                    width: 550, // Larghezza di una singola pagina
-                    height: 733, // Altezza di una singola pagina
+                    width: 550,
+                    height: 733,
                     size: "stretch",
                     minWidth: 300,
                     maxWidth: 1000,
@@ -136,26 +177,25 @@
                     drawShadow: true
                 });
 
-                // Aggiungi le pagine
                 flipBook.loadFromHTML(pages);
+                updateDebug('PageFlip inizializzato con successo');
 
-                // Eventi
                 flipBook.on('flip', (e) => {
                     document.getElementById('currentPage').textContent = e.page;
                 });
 
                 document.getElementById('loading').style.display = 'none';
+                updateDebug('Caricamento completato');
 
             } catch (error) {
+                updateDebug('Errore critico: ' + error.message);
                 document.getElementById('loading').textContent = 'Errore nel caricamento: ' + error.message;
                 console.error('Errore:', error);
             }
         }
 
-        // Carica il PDF quando la pagina è pronta
         document.addEventListener('DOMContentLoaded', loadPDF);
 
-        // Gestione del ridimensionamento
         window.addEventListener('resize', () => {
             if (flipBook) {
                 flipBook.updateFromState();
