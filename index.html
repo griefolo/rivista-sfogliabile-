@@ -4,49 +4,54 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rivista Sfogliabile</title>
+    
+    <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    
+    <!-- PDF.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <!-- Turn.js da un CDN alternativo -->
-    <script src="https://raw.githack.com/blasten/turn.js/master/turn.min.js"></script>
+    
+    <!-- FlipBook -->
+    <link rel="stylesheet" type="text/css" href="https://raw.githack.com/blasten/turn.js/master/demos/magazine/css/magazine.css">
+    <script type="text/javascript" src="https://raw.githack.com/blasten/turn.js/master/demos/magazine/js/magazine.min.js"></script>
+    <script type="text/javascript" src="https://raw.githack.com/blasten/turn.js/master/demos/magazine/js/jquery.mousewheel.min.js"></script>
+
     <style>
         body {
             margin: 0;
             padding: 20px;
             background: #f0f0f0;
             font-family: Arial, sans-serif;
-            overflow-x: hidden;
         }
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1);
-        }
-        #magazine-container {
-            margin: 0 auto;
+        #flipbook-container {
+            margin: 20px auto;
+            width: 90%;
+            max-width: 1200px;
+            height: 800px;
             position: relative;
-            overflow: hidden;
         }
-        #magazine {
-            margin: 0 auto;
+        #flipbook {
+            width: 100%;
+            height: 100%;
         }
         .page {
-            background: white;
+            background-color: white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.2);
+        }
+        .page img {
+            max-width: 100%;
+            height: auto;
         }
         .controls {
-            text-align: center;
-            margin: 20px 0;
-            padding: 10px;
-            background: #fff;
-            border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
             position: fixed;
             bottom: 20px;
             left: 50%;
             transform: translateX(-50%);
-            z-index: 100;
+            background: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
         }
         button {
             padding: 10px 20px;
@@ -63,65 +68,46 @@
             background: #0056b3;
         }
         #loading {
-            text-align: center;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             font-size: 18px;
             color: #666;
-            margin: 20px 0;
-        }
-        #pageInfo {
-            margin: 0 20px;
-            color: #666;
-        }
-        /* Stili per l'effetto di sfogliamento */
-        .hard {
-            background: #ccc !important;
-            color: #333;
-            text-align: center;
-            font-weight: bold;
-            padding-top: 20px;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div id="loading">Caricamento della rivista...</div>
-        <div id="magazine-container">
-            <div id="magazine">
-                <!-- Le pagine verranno aggiunte qui dinamicamente -->
-            </div>
-        </div>
-        <div class="controls">
-            <button onclick="firstPage()">Prima Pagina</button>
-            <button onclick="prevPage()">Precedente</button>
-            <span id="pageInfo">Pagina <span id="currentPage">0</span> di <span id="totalPages">0</span></span>
-            <button onclick="nextPage()">Successiva</button>
-            <button onclick="lastPage()">Ultima Pagina</button>
-        </div>
+    <div id="loading">Caricamento della rivista...</div>
+    
+    <div id="flipbook-container">
+        <div id="flipbook"></div>
+    </div>
+    
+    <div class="controls">
+        <button onclick="prevPage()">◄ Precedente</button>
+        <span id="pageInfo">Pagina <span id="currentPage">1</span> di <span id="totalPages">0</span></span>
+        <button onclick="nextPage()">Successiva ►</button>
     </div>
 
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-        let pdfDoc = null;
         let currentPage = 1;
-        let magazine = null;
+        let pdfDoc = null;
+        let flipbook = null;
 
-        // Sostituisci 'magazine.pdf' con il nome del tuo file PDF
+        // Sostituisci con il nome del tuo file PDF
         const url = 'magazine.pdf';
 
         async function loadPDF() {
             try {
                 pdfDoc = await pdfjsLib.getDocument(url).promise;
                 document.getElementById('totalPages').textContent = pdfDoc.numPages;
-                
-                const magazineDiv = document.getElementById('magazine');
-                
-                // Aggiungi copertina
-                const coverDiv = document.createElement('div');
-                coverDiv.className = 'hard';
-                magazineDiv.appendChild(coverDiv);
 
-                // Crea le pagine
+                const flipbookElement = document.getElementById('flipbook');
+                
+                // Carica tutte le pagine
                 for (let i = 1; i <= pdfDoc.numPages; i++) {
                     const page = await pdfDoc.getPage(i);
                     const scale = 1.5;
@@ -136,7 +122,7 @@
                     canvas.width = viewport.width;
 
                     pageDiv.appendChild(canvas);
-                    magazineDiv.appendChild(pageDiv);
+                    flipbookElement.appendChild(pageDiv);
 
                     await page.render({
                         canvasContext: context,
@@ -146,72 +132,45 @@
                     document.getElementById('loading').textContent = `Caricamento pagina ${i} di ${pdfDoc.numPages}...`;
                 }
 
-                // Aggiungi retro copertina
-                const backCoverDiv = document.createElement('div');
-                backCoverDiv.className = 'hard';
-                magazineDiv.appendChild(backCoverDiv);
+                // Inizializza FlipBook
+                $('#flipbook').flipBook({
+                    width: 1000,
+                    height: 600,
+                    autoCenter: true,
+                    responsive: true,
+                    when: {
+                        turned: function(event, page) {
+                            currentPage = page;
+                            document.getElementById('currentPage').textContent = page;
+                        }
+                    }
+                });
 
-                // Inizializza turn.js con un ritardo per assicurarsi che tutto sia caricato
-                setTimeout(() => {
-                    initializeMagazine();
-                }, 1000);
+                document.getElementById('loading').style.display = 'none';
 
             } catch (error) {
                 document.getElementById('loading').textContent = 'Errore nel caricamento: ' + error.message;
+                console.error('Errore:', error);
             }
         }
 
-        function initializeMagazine() {
-            const width = Math.min(1200, window.innerWidth - 60);
-            const height = (width * 0.7); // Mantieni il rapporto
-
-            magazine = $('#magazine').turn({
-                width: width,
-                height: height,
-                autoCenter: true,
-                gradients: true,
-                acceleration: true,
-                elevation: 50,
-                display: 'double',
-                when: {
-                    turned: function(e, page) {
-                        currentPage = page;
-                        document.getElementById('currentPage').textContent = page;
-                    }
-                }
-            });
-
-            document.getElementById('loading').style.display = 'none';
-            document.getElementById('currentPage').textContent = '1';
-        }
-
         function prevPage() {
-            $('#magazine').turn('previous');
+            $('#flipbook').flipBook('prev');
         }
 
         function nextPage() {
-            $('#magazine').turn('next');
+            $('#flipbook').flipBook('next');
         }
 
-        function firstPage() {
-            $('#magazine').turn('page', 1);
-        }
-
-        function lastPage() {
-            $('#magazine').turn('page', pdfDoc.numPages + 2); // +2 per le copertine
-        }
-
-        // Carica il PDF quando la pagina è pronta
+        // Inizia il caricamento quando la pagina è pronta
         $(document).ready(function() {
             loadPDF();
         });
 
-        // Gestione del ridimensionamento della finestra
+        // Gestione del ridimensionamento
         $(window).resize(function() {
-            if (magazine) {
-                const width = Math.min(1200, window.innerWidth - 60);
-                const height = (width * 0.7);
-                magazine.turn('size', width, height);
+            if ($('#flipbook').data('flipBook')) {
+                $('#flipbook').flipBook('resize');
             }
         });
     </script>
