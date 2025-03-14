@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rivista Sfogliabile</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.11.338/pdf.min.js"></script>
     <style>
         body {
             margin: 0;
@@ -55,21 +54,22 @@
             <span id="page-info">Pagina: <span id="page-num"></span> / <span id="page-count"></span></span>
             <button onclick="nextPage()">Pagina Successiva</button>
         </div>
-        <iframe id="pdf-viewer" src="https://mozilla.github.io/pdf.js/web/viewer.html?file=https://drive.google.com/uc?export=download%26id=1SdZFHq01dLF6V1YQmEizdqoUypqvrqik"></iframe>
+        <iframe id="pdf-viewer"></iframe>
     </div>
 
     <script>
+        // Costruisci l'URL del PDF dal repository GitHub
+        const repoName = window.location.pathname.split('/')[1]; // Nome del repository
+        const pdfUrl = `/${repoName}/RIL-Creativita in primavera.pdf`; // Sostituisci "RIL-Creativita in primavera.pdf" con il nome del tuo file
+        
+        // Costruisci l'URL del viewer con il PDF
+        const viewerUrl = `https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(window.location.origin + pdfUrl)}`;
+        
+        // Imposta l'URL nel viewer
+        document.getElementById('pdf-viewer').src = viewerUrl;
+
         let currentPage = 1;
         let numPages = 0;
-        
-        // Inizializza il viewer
-        window.onload = function() {
-            const viewer = document.getElementById('pdf-viewer');
-            viewer.onload = function() {
-                // Il viewer è caricato
-                updatePageInfo();
-            };
-        };
 
         function updatePageInfo() {
             document.getElementById('page-num').textContent = currentPage;
