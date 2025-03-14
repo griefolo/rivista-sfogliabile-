@@ -5,16 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rivista Sfogliabile</title>
     
-    <!-- jQuery -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    
     <!-- PDF.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     
-    <!-- FlipBook -->
-    <link rel="stylesheet" type="text/css" href="https://raw.githack.com/blasten/turn.js/master/demos/magazine/css/magazine.css">
-    <script type="text/javascript" src="https://raw.githack.com/blasten/turn.js/master/demos/magazine/js/magazine.min.js"></script>
-    <script type="text/javascript" src="https://raw.githack.com/blasten/turn.js/master/demos/magazine/js/jquery.mousewheel.min.js"></script>
+    <!-- Page Flip -->
+    <script src="https://cdn.jsdelivr.net/npm/page-flip/dist/js/page-flip.browser.min.js"></script>
 
     <style>
         body {
@@ -22,25 +17,22 @@
             padding: 20px;
             background: #f0f0f0;
             font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
-        #flipbook-container {
+        #book {
             margin: 20px auto;
-            width: 90%;
-            max-width: 1200px;
-            height: 800px;
-            position: relative;
+            background: white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.2);
+            border-radius: 4px;
         }
-        #flipbook {
+        .page-content {
             width: 100%;
             height: 100%;
-        }
-        .page {
-            background-color: white;
-            box-shadow: 0 0 20px rgba(0,0,0,0.2);
-        }
-        .page img {
-            max-width: 100%;
-            height: auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
         .controls {
             position: fixed;
@@ -48,14 +40,16 @@
             left: 50%;
             transform: translateX(-50%);
             background: white;
-            padding: 10px 20px;
+            padding: 15px 25px;
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
             z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
         button {
             padding: 10px 20px;
-            margin: 0 5px;
             font-size: 16px;
             cursor: pointer;
             background: #007bff;
@@ -68,82 +62,86 @@
             background: #0056b3;
         }
         #loading {
-            position: absolute;
+            position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            font-size: 18px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            z-index: 1001;
+        }
+        #pageInfo {
+            margin: 0 15px;
             color: #666;
+            font-size: 16px;
         }
     </style>
 </head>
 <body>
     <div id="loading">Caricamento della rivista...</div>
-    
-    <div id="flipbook-container">
-        <div id="flipbook"></div>
-    </div>
-    
+    <div id="book"></div>
     <div class="controls">
-        <button onclick="prevPage()">◄ Precedente</button>
+        <button onclick="flipBook.flipPrev()">◄ Precedente</button>
         <span id="pageInfo">Pagina <span id="currentPage">1</span> di <span id="totalPages">0</span></span>
-        <button onclick="nextPage()">Successiva ►</button>
+        <button onclick="flipBook.flipNext()">Successiva ►</button>
     </div>
 
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
-        let currentPage = 1;
-        let pdfDoc = null;
-        let flipbook = null;
-
-        // Sostituisci con il nome del tuo file PDF
-        const url = 'magazine.pdf';
+        let flipBook;
+        const url = 'magazine.pdf'; // Sostituisci con il nome del tuo file PDF
 
         async function loadPDF() {
             try {
-                pdfDoc = await pdfjsLib.getDocument(url).promise;
-                document.getElementById('totalPages').textContent = pdfDoc.numPages;
+                const pdf = await pdfjsLib.getDocument(url).promise;
+                document.getElementById('totalPages').textContent = pdf.numPages;
 
-                const flipbookElement = document.getElementById('flipbook');
-                
-                // Carica tutte le pagine
-                for (let i = 1; i <= pdfDoc.numPages; i++) {
-                    const page = await pdfDoc.getPage(i);
+                const pages = [];
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
                     const scale = 1.5;
                     const viewport = page.getViewport({ scale });
 
-                    const pageDiv = document.createElement('div');
-                    pageDiv.className = 'page';
-                    
                     const canvas = document.createElement('canvas');
                     const context = canvas.getContext('2d');
                     canvas.height = viewport.height;
                     canvas.width = viewport.width;
-
-                    pageDiv.appendChild(canvas);
-                    flipbookElement.appendChild(pageDiv);
 
                     await page.render({
                         canvasContext: context,
                         viewport: viewport
                     }).promise;
 
-                    document.getElementById('loading').textContent = `Caricamento pagina ${i} di ${pdfDoc.numPages}...`;
+                    const div = document.createElement('div');
+                    div.className = 'page-content';
+                    div.appendChild(canvas);
+                    pages.push(div);
+
+                    document.getElementById('loading').textContent = `Caricamento pagina ${i} di ${pdf.numPages}...`;
                 }
 
-                // Inizializza FlipBook
-                $('#flipbook').flipBook({
-                    width: 1000,
-                    height: 600,
-                    autoCenter: true,
-                    responsive: true,
-                    when: {
-                        turned: function(event, page) {
-                            currentPage = page;
-                            document.getElementById('currentPage').textContent = page;
-                        }
-                    }
+                // Inizializza PageFlip
+                flipBook = new PageFlip(document.getElementById('book'), {
+                    width: 550, // Larghezza di una singola pagina
+                    height: 733, // Altezza di una singola pagina
+                    size: "stretch",
+                    minWidth: 300,
+                    maxWidth: 1000,
+                    minHeight: 400,
+                    maxHeight: 1333,
+                    showCover: true,
+                    drawShadow: true
+                });
+
+                // Aggiungi le pagine
+                flipBook.loadFromHTML(pages);
+
+                // Eventi
+                flipBook.on('flip', (e) => {
+                    document.getElementById('currentPage').textContent = e.page;
                 });
 
                 document.getElementById('loading').style.display = 'none';
@@ -154,23 +152,13 @@
             }
         }
 
-        function prevPage() {
-            $('#flipbook').flipBook('prev');
-        }
-
-        function nextPage() {
-            $('#flipbook').flipBook('next');
-        }
-
-        // Inizia il caricamento quando la pagina è pronta
-        $(document).ready(function() {
-            loadPDF();
-        });
+        // Carica il PDF quando la pagina è pronta
+        document.addEventListener('DOMContentLoaded', loadPDF);
 
         // Gestione del ridimensionamento
-        $(window).resize(function() {
-            if ($('#flipbook').data('flipBook')) {
-                $('#flipbook').flipBook('resize');
+        window.addEventListener('resize', () => {
+            if (flipBook) {
+                flipBook.updateFromState();
             }
         });
     </script>
