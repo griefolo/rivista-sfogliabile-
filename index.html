@@ -92,18 +92,30 @@
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
 
         // URL del PDF da Google Drive
-        const pdfUrl = 'https://drive.google.com/uc?export=download&id=1SdZFHq01dLF6V1YQmEizdqoUypqvrqik';
+        const fileId = '1SdZFHq01dLF6V1YQmEizdqoUypqvrqik';
+        const pdfUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=AIzaSyBLHgTOWvFxZXCQmAqDvwNE9EFO5XhxRMY`;
 
         let currentPage = 1;
         let totalPages = 0;
         let magazine;
+
+        async function fetchPdfAsBlob() {
+            const response = await fetch(pdfUrl);
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return await response.blob();
+        }
 
         async function loadPDF() {
             try {
                 const loadingDiv = document.getElementById('loading');
                 loadingDiv.textContent = 'Caricamento del PDF...';
 
-                const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
+                const pdfBlob = await fetchPdfAsBlob();
+                const pdfData = await pdfBlob.arrayBuffer();
+                
+                const pdf = await pdfjsLib.getDocument({data: pdfData}).promise;
                 totalPages = pdf.numPages;
                 document.getElementById('total-pages').textContent = totalPages;
 
