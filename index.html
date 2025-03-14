@@ -4,179 +4,38 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rivista Sfogliabile</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/4/turn.min.js"></script>
     <style>
         body {
             margin: 0;
-            padding: 20px;
-            background: #f0f0f0;
-            font-family: Arial, sans-serif;
+            padding: 0;
             display: flex;
-            flex-direction: column;
+            justify-content: center;
             align-items: center;
+            min-height: 100vh;
+            background: #f0f0f0;
         }
-        #loading {
-            text-align: center;
-            padding: 20px;
-            font-size: 18px;
-            color: #666;
-        }
-        #magazine-container {
-            margin: 0 auto;
-            position: relative;
+        .container {
+            width: 100%;
             max-width: 1200px;
+            height: 90vh;
+            margin: 20px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.2);
+            border-radius: 10px;
+            overflow: hidden;
         }
-        #magazine {
-            margin: 0 auto;
-            background: #fff;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-        }
-        .page {
-            background: white;
-            padding: 20px;
-        }
-        .controls {
-            text-align: center;
-            margin: 20px 0;
-            padding: 10px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1000;
-        }
-        .controls button {
-            margin: 0 5px;
-            padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
-            background: #007bff;
-            color: white;
+        iframe {
+            width: 100%;
+            height: 100%;
             border: none;
-            border-radius: 5px;
-            transition: background 0.3s ease;
-        }
-        .controls button:hover {
-            background: #0056b3;
-        }
-        .page-number {
-            text-align: center;
-            margin-top: 10px;
-            font-size: 14px;
-            color: #666;
         }
     </style>
 </head>
 <body>
-    <div id="loading">Caricamento della rivista in corso...</div>
-    <div id="magazine-container">
-        <div class="controls">
-            <button onclick="firstPage()">Prima Pagina</button>
-            <button onclick="prevPage()">Precedente</button>
-            <button onclick="nextPage()">Successiva</button>
-            <button onclick="lastPage()">Ultima Pagina</button>
-        </div>
-        <div id="magazine"></div>
-        <div class="page-number">
-            Pagina <span id="current-page">1</span> di <span id="total-pages">0</span>
-        </div>
+    <div class="container">
+        <iframe src="https://drive.google.com/file/d/1SdZFHq01dLF6V1YQmEizdqoUypqvrqik/preview" 
+                allow="autoplay"
+                allowfullscreen>
+        </iframe>
     </div>
-
-    <script>
-        // Configura il worker di PDF.js
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
-
-        // URL del PDF (sostituisci con il nome del tuo file PDF)
-        const pdfUrl = 'RIL-Creativita in primavera.pdf';
-
-        let currentPage = 1;
-        let totalPages = 0;
-        let magazine;
-
-        async function loadPDF() {
-            try {
-                const loadingDiv = document.getElementById('loading');
-                loadingDiv.textContent = 'Caricamento del PDF...';
-
-                const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
-                totalPages = pdf.numPages;
-                document.getElementById('total-pages').textContent = totalPages;
-
-                loadingDiv.textContent = 'Preparazione delle pagine...';
-                const container = document.getElementById('magazine');
-                
-                for (let i = 1; i <= totalPages; i++) {
-                    const page = await pdf.getPage(i);
-                    const scale = 1.5;
-                    const viewport = page.getViewport({ scale });
-
-                    const canvas = document.createElement('canvas');
-                    const context = canvas.getContext('2d');
-                    canvas.height = viewport.height;
-                    canvas.width = viewport.width;
-
-                    const pageDiv = document.createElement('div');
-                    pageDiv.className = 'page';
-                    pageDiv.appendChild(canvas);
-                    container.appendChild(pageDiv);
-
-                    await page.render({
-                        canvasContext: context,
-                        viewport: viewport
-                    }).promise;
-
-                    loadingDiv.textContent = `Caricamento pagina ${i} di ${totalPages}...`;
-                }
-
-                loadingDiv.style.display = 'none';
-                initializeMagazine();
-            } catch (error) {
-                console.error('Errore nel caricamento del PDF:', error);
-                document.getElementById('loading').innerHTML = 
-                    '<p style="color: red;">Errore nel caricamento del PDF. Riprova più tardi.</p>';
-            }
-        }
-
-        function initializeMagazine() {
-            magazine = $('#magazine').turn({
-                width: 1000,
-                height: 600,
-                autoCenter: true,
-                gradients: true,
-                acceleration: true,
-                elevation: 50,
-                when: {
-                    turned: function(e, page) {
-                        currentPage = page;
-                        document.getElementById('current-page').textContent = page;
-                    }
-                }
-            });
-        }
-
-        function prevPage() {
-            $('#magazine').turn('previous');
-        }
-
-        function nextPage() {
-            $('#magazine').turn('next');
-        }
-
-        function firstPage() {
-            $('#magazine').turn('page', 1);
-        }
-
-        function lastPage() {
-            $('#magazine').turn('page', totalPages);
-        }
-
-        // Carica il PDF quando la pagina è pronta
-        document.addEventListener('DOMContentLoaded', loadPDF);
-    </script>
 </body>
 </html>
